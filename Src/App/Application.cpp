@@ -15,9 +15,6 @@ Application::Application() :
 {}
 
 void Application::setup(){
-  DCOCTL = DCO0|DCO1|DCO2;       // DCO=4MHz
-  BCSCTL1 = RSEL0|RSEL1|RSEL2|XTS|XT2OFF|DIVA_0; 
-  BCSCTL2 = 0; 
   
   __enable_interrupt();  
   
