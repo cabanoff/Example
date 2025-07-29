@@ -1,7 +1,4 @@
 
-# MSP430F1612 IAR IDE 7.12
-В проекте использованы паттерны State, Mediator, Observer, Singleton
-Этот проект реализует пользовательскую кооперативную операционную систему реального времени (RTOS) и может быть классифицирован как «кооперативный планировщик с временным триггером» с управлением задачами в стиле coroutines с использованием events.
 # Диаграмма классов
 ```mermaid
 classDiagram
@@ -81,6 +78,9 @@ direction LR
     MediatorObserver --> RBLabParser
     MediatorObserver --> RBLabSensParser
     MediatorObserver --> Mediator
+
+
+
 ```
 
 # Диаграмма процессов coroutine классов Sensor_Task
@@ -104,6 +104,7 @@ sequenceDiagram
     ConcreteTask->>DataHandler: setData()
     deactivate BaseTask
 
-
+```
+***
 
 
