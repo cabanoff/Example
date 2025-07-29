@@ -13,7 +13,7 @@ public:
 private:
   AppState::Type current_state;
   AppState::Type next_state;
-  AppState::Type last_state;
+  AppState::Type before_rblab_state;
   AppEvent::Type event;
   IStateHandler* handler;
 

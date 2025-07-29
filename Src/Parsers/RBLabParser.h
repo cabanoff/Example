@@ -24,6 +24,9 @@ namespace RBLabCommand {
     READ_VOLT = 0x47,
     READ_CONC = 0x49,
     WRITE_CONFIG = 0xd0,
+    READ_CONFIG = 0xd1,
+    WRITE_SENSOR_CONFIG = 0xd2,
+    READ_SENSOR_CONFIG = 0xd3,
   };
 }
 
@@ -59,9 +62,13 @@ private:
   int16_t asciiToInt(const volatile uint8_t buffer[4], bool& valid);
   
   void addCrcAndNull(uint8_t* buffer, uint16_t& len);
-
-  parse_error_code toRBLadbModeParse
-    (const volatile uint8_t* buffer, uint16_t length);
+  
+  parse_error_code callSpecificParser
+    (uint8_t cmd, const volatile uint8_t* buffer,uint16_t length);
+  
+  parse_error_code fixedSizeCommand(const volatile uint8_t* buffer, 
+                                    uint16_t length, 
+                                    const uint8_t* validPattern);
   
   parse_error_code toTransModeParse
     (const volatile uint8_t* buffer, uint16_t length);
@@ -69,40 +76,50 @@ private:
   parse_error_code fromTransModeParse
     (const volatile uint8_t* buffer, uint16_t length);
   
-  parse_error_code pthAskParse
-    (const volatile uint8_t* buffer, uint16_t length);
-  
-  parse_error_code paramAskParse
-    (const volatile uint8_t* buffer, uint16_t length);
-  
   parse_error_code fromRbLabModeParse
-    (const volatile uint8_t* buffer, uint16_t length);
-  
-  parse_error_code readConcentration
-    (const volatile uint8_t* buffer, uint16_t length);
-  
-  parse_error_code readVoltage
     (const volatile uint8_t* buffer, uint16_t length);
   
   parse_error_code setTime
     (const volatile uint8_t* buffer, uint16_t length);
   
-  parse_error_code writeParam
+  parse_error_code writeParamParse
     (const volatile uint8_t* buffer, uint16_t length);
   
-  parse_error_code writeConfig
+  parse_error_code writeConfigParse
     (const volatile uint8_t* buffer, uint16_t length);
+  
+  parse_error_code writeSensorConfigParse
+     (const volatile uint8_t* buffer, uint16_t length);
+  
+  parse_error_code readSensorConfigParse
+     (const volatile uint8_t* buffer, uint16_t length);
+  
   
   void enterTransMode(uint8_t trans_channel);
   
+  void exitTransparentMode();
+  
   void exitRbLabMode();
+  
+  void enterRbLabMode();
   
   // Global buffer to hold the RBLab response
   static uint8_t response_buffer[MAX_RBLAB_OUT]; 
   uint16_t response_len;
   uint8_t trans_channel;
+  uint8_t read_channel;
   
   RBLabCommand::Type commandFromPC;
   RBLabCommand::Type commandToMCU;
+  
+public:
+  struct CommandEntry {
+    // Command identifier
+    RBLabCommand::Type cmd;         
+    // Expected message (NULL if handled by specific parser)
+    const uint8_t* pattern; 
+    // Call enterRbLabMode() if true
+    bool enterMode;        
+  };
   
 };

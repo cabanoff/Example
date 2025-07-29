@@ -135,8 +135,6 @@ void ZeroStateTask::run(ccrContParam) {
   DEBUG_PRINT("Disconnect SensorsZeroPollTask ");
 
   display_.clrscr();
-  display_.printStr(5,1,"Exit from Zer0 mode");
-  ccrDelay(ctx, 2);
 
   stateMachine.setEvent(outEvent);
 

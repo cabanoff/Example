@@ -14,12 +14,12 @@
 #include "ModbusParser.h"
 
 #include "TXSender.h"
-#include "LEDTask.h"
 
 #include "InitStateTask.h"
 #include "ZeroStateTask.h"
 #include "PollStateTask.h"
 #include "RBLabStateTask.h"
+#include "TransStateTask.h"
 
 #include "RA8806.h"
 #include "Channels.h"
@@ -51,8 +51,6 @@ private:
   TX0Sender UART0Sender;
 
   MediatorObserver modbusObserver, rblabObserver;
-
-  LEDTask leds;
 
   StateTaskBase* stateTask;
   

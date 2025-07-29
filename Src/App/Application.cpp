@@ -52,6 +52,7 @@ void Application::loop(){
 
 StateTaskBase* Application::createStateTask(AppState::Type newState) {
   switch (newState) {
+    // to do: divide INIT mode + WarmUpStateTask
     case AppState::INIT:
       display.init();
       DEBUG_PRINT(" -> INIT mode: %u bytes ", sizeof(InitStateTask));
@@ -59,6 +60,7 @@ StateTaskBase* Application::createStateTask(AppState::Type newState) {
                                AppEvent::ZERO_SET_MODE_REQUEST, 
                                display, 
                                &UART0Sender);
+   
 
     case AppState::ZERO_SET_MODE:
       DEBUG_PRINT(" -> ZERO mode: %u bytes ", sizeof(ZeroStateTask));
@@ -75,9 +77,15 @@ StateTaskBase* Application::createStateTask(AppState::Type newState) {
                                &UART0Sender);
       
     case AppState::RBLAB_MODE:
-      
       DEBUG_PRINT(" -> RBLab mode: %u bytes ", sizeof(RBLabStateTask));
       return new RBLabStateTask(stateMachine, 
+                               AppEvent::POLL_MODE_REQUEST, 
+                               display, 
+                               &UART0Sender);
+      
+    case AppState::TRANSPARENT_MODE:
+      DEBUG_PRINT(" -> Transparent mode: %u bytes ", sizeof(TransStateTask));
+      return new TransStateTask(stateMachine, 
                                AppEvent::POLL_MODE_REQUEST, 
                                display, 
                                NULL);

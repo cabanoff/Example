@@ -1,15 +1,27 @@
 //Config.cpp
 
-
 #include "Config.h"
 
+//Config::Settings debug_s = {0};
 
 const Config::CommonSettings Config::defaultCommonSettings = {
-   1,           //modbusAddr
-   120,         //blockingTime
+   2,           //modbusAddr
+   60,         //blockingTime
    -10,         //pressureCompensation 
+   50,           //pumpPower duty cycle
    1.0,         //alarmThreshold_1;
    2.0,         //alarmThreshold_2;
+   Config::CommonSettings::TWO_THRESHOLD,
+   Config::CommonSettings::PDK_MAX_ALLOWED
+};
+
+const Config::CommonSettings Config::minCommonSettings = {
+   1,   
+   30,
+   -50,  
+   0,
+   0.0,    
+   1.0,
    Config::CommonSettings::TWO_THRESHOLD,
    Config::CommonSettings::PDK_MAX_ALLOWED
 };
@@ -17,35 +29,29 @@ const Config::CommonSettings Config::defaultCommonSettings = {
 const Config::CommonSettings Config::maxCommonSettings = {
    255,        //modbusAddr
    900,        //blockingTime
-   50,         //pressureCompensation    
+   50,         //pressureCompensation  
+   100,
    100.0,      //alarmThreshold_1;  
    30.0,       //alarmThreshold_2;
    Config::CommonSettings::TWO_THRESHOLD,
    Config::CommonSettings::PDK_WORK_ZONE
 };
 
-const Config::CommonSettings Config::minCommonSettings = {
-   1,   
-   30,
-   -50,        
-   0.0,    
-   1.0,
-   Config::CommonSettings::TWO_THRESHOLD,
-   Config::CommonSettings::PDK_MAX_ALLOWED
-};
+
 
 
 
 const Config::SensorSettings Config::defaultSensorSettings = {
    "None",
    "H2O",
-    0,     // start_range;  
-    20,     // end_range; 
-    1,     // threshold_1;
-    10,     // threshold_2;
+    0.0,     // start_range;  
+    20.0,     // end_range; 
+    2.0,     // threshold_1;
     Config::SensorSettings::DOWN,
+    1.0,     // threshold_2;
     Config::SensorSettings::DOWN,
-    Config::SensorSettings::MG_PER_M3 //units
+    Config::SensorSettings::MG_PER_M3, //units
+    3,  //decimal points
 };
 
 const char Config::MG_PER_M3[] = 
@@ -60,6 +66,7 @@ STATIC_ASSERT(sizeof(VERSION) == 5, version_string_must_be_4_characters);
 void Config::init(){
   Settings s;
   readSettings(s);
+
   if(s.check_sum != calculateChecksum(s)){
     s.common = defaultCommonSettings;
     for (uint8_t i = 0; i < MAX_SENSORS_CONF; ++i) {
@@ -67,6 +74,8 @@ void Config::init(){
     }
     writeSettings(s);
   }
+  
+//  readSettings(debug_s);
 }
 
 
@@ -157,6 +166,25 @@ void Config::writeAlarmThreshold_2(float threshold) {
     writeSettings(s);
 }
 
+float Config::readStartRange(uint8_t channel) const {
+    float val = 0.0;
+    if(channel < MAX_SENSORS_CONF){
+      Settings s;
+      readSettings(s);
+      val =  s.sensor[channel].start_range;
+    }
+    return val;
+}
+
+void Config::writeStartRange(uint8_t channel, float start_range) {
+    if(channel < MAX_SENSORS_CONF){
+      Settings s;
+      readSettings(s);
+      s.sensor[channel].start_range = start_range;
+      writeSettings(s);
+    }
+}
+
 float Config::readThreshold_1(uint8_t channel) const {
   float val = 0.0;
   if(channel < MAX_SENSORS_CONF){
@@ -177,7 +205,7 @@ float Config::readThreshold_2(uint8_t channel) const {
   return val;
 }
 
-Config::SensorSettings::AlarmDirection Config::threshold1Direction
+Config::SensorSettings::AlarmDirection Config::readThreshold1Direction
   (uint8_t channel)
 {
   SensorSettings::AlarmDirection val = SensorSettings::UP;
@@ -189,7 +217,7 @@ Config::SensorSettings::AlarmDirection Config::threshold1Direction
   return val;
 }
 
-Config::SensorSettings::AlarmDirection Config::threshold2Direction
+Config::SensorSettings::AlarmDirection Config::readThreshold2Direction
   (uint8_t channel)
 {
   SensorSettings::AlarmDirection val = SensorSettings::UP;
@@ -201,28 +229,32 @@ Config::SensorSettings::AlarmDirection Config::threshold2Direction
   return val;
 }
 
-uint8_t Config::readPDKType(){
+Config::CommonSettings::PDKType Config::readPDKType(){
     Settings s;
     readSettings(s);
-    return (s.common.pdkType == CommonSettings::PDK_MAX_ALLOWED) ? 0 : 1; 
+    return s.common.pdkType; 
 }
 
-void Config::writePDKType(uint8_t type){
+void Config::writePDKType(CommonSettings::PDKType type){
     Settings s;
     readSettings(s);
-    s.common.pdkType = (type == 0) ? CommonSettings::PDK_MAX_ALLOWED :
-      CommonSettings::PDK_WORK_ZONE;
+    s.common.pdkType = type;
     writeSettings(s);
 }
 
 void Config::readSensorName
-  (char* outName, size_t maxLen, uint8_t channel) const {
+  ( uint8_t channel, char* outName, size_t maxLen) const {
     
-  if(maxLen == 0) return;
+  if((maxLen == 0)||(maxLen > MAX_NAME_LENGTH)) return;
   if(channel < MAX_SENSORS_CONF){
     Settings s;
     readSettings(s);
-    strncpy(outName, s.sensor[channel].name, maxLen);
+    if(strcmp(s.sensor[channel].name,"None") == 0)
+      strncpy(outName, 
+              DataHandler::instance().getName(channel),
+              maxLen);
+    else
+      strncpy(outName, s.sensor[channel].name, maxLen);
     outName[maxLen - 1] = '\0'; // null-terminate
   }
   else{
@@ -231,15 +263,81 @@ void Config::readSensorName
   }
 }
 
-void Config::writeSensorName(const char* newName, uint8_t channel) {
+void Config::readSensorSettings
+   (uint8_t channel, SensorSettings& sensorSettings) const {
+    
   if(channel < MAX_SENSORS_CONF){
     Settings s;
     readSettings(s);
+    sensorSettings = s.sensor[channel];
+  }
+}
+
+void Config::writeSensorName(uint8_t channel, const char* newName) {
+ 
+  if(channel < MAX_SENSORS_CONF){
+    Settings s;
+    readSettings(s);
+    memset(s.sensor[channel].name, 0, sizeof(s.sensor[channel].name));
     strncpy(s.sensor[channel].name, newName, sizeof(s.sensor[channel].name));
+    s.sensor[channel].name[sizeof(s.sensor[channel].name) - 1] = '\0';
     writeSettings(s);
   }
 }
 
+void Config::readSensorFormula
+  ( uint8_t channel, char* outFormula, size_t maxLen) const {
+    
+  if(maxLen == 0) return;
+  if(channel < MAX_SENSORS_CONF){
+    Settings s;
+    readSettings(s);
+    strncpy(outFormula, s.sensor[channel].formula, maxLen);
+    outFormula[maxLen - 1] = '\0'; // null-terminate
+  }
+  else{
+    strncpy(outFormula, "H2O", maxLen);
+    outFormula[maxLen - 1] = '\0'; // null-terminate
+  }
+}
+
+void Config::writeSensorFormula(uint8_t channel, const char* newFormula) {
+ 
+  if(channel < MAX_SENSORS_CONF){
+    Settings s;
+    readSettings(s);
+    memset(s.sensor[channel].formula, 0, sizeof(s.sensor[channel].formula));
+    strncpy(s.sensor[channel].formula, 
+            newFormula, sizeof(s.sensor[channel].formula));
+    s.sensor[channel].formula[sizeof(s.sensor[channel].formula) - 1] = '\0';
+    writeSettings(s);
+  }
+}
+
+//how many decimal places to display
+//uint8_t DataHandler::getDecimal(uint8_t channel){
+//  return 2;
+//}
+
+uint8_t Config::readDecimal(uint8_t channel){
+  if(channel < MAX_SENSORS_CONF){
+    Settings s;
+    readSettings(s);
+    return s.sensor[channel].decimal;
+  }
+  else return 0;
+}
+
+void Config::writeSensorSettings
+(uint8_t channel, SensorSettings& sensorSettings){
+  
+  if(channel < MAX_SENSORS_CONF){
+    Settings s;
+    readSettings(s);
+    s.sensor[channel] = sensorSettings;
+    writeSettings(s);
+  }
+}
 
 Config::Config(){}
 
@@ -255,7 +353,7 @@ void Config::writeSettings(Settings& s) {
   const uint16_t* src = reinterpret_cast<const uint16_t*>(&s);
   volatile uint16_t* dst = reinterpret_cast<volatile uint16_t*>(SEG_B_ADDR); 
   uint16_t words = sizeof(Settings) / sizeof(uint16_t);  
-  
+//  debug_s = s; //fd 
 
   __disable_interrupt();
   FCTL2 = FWKEY + FSSEL0 + FN1;
@@ -318,6 +416,13 @@ Config::CommonSettings::AlarmType Config::readAlarmType(){
   Settings s;
   readSettings(s);
   return s.common.alarmType;
+}
+
+void Config::writeAlarmType(CommonSettings::AlarmType type){
+  Settings s;
+  readSettings(s);
+  s.common.alarmType = type;
+  writeSettings(s);
 }
 
   

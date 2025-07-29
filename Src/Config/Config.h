@@ -18,12 +18,14 @@ public:
   struct CommonSettings {
       uint16_t  modbusAddr;   
       int16_t   blockingTime;
-      int16_t   pressureCompensation;        
+      int16_t   pressureCompensation;
+      uint8_t   pumpPower;
       float     alarmThreshold_1;    
       float     alarmThreshold_2;
       enum AlarmType{
         ONE_THRESHOLD,
         TWO_THRESHOLD,
+        INDIVIDUAL_RELAY,
       }alarmType;
       enum PDKType{
         PDK_MAX_ALLOWED, 
@@ -32,27 +34,30 @@ public:
   };
   
   struct SensorSettings {
-      char name[30];
-      char formula[12];
+      char name[MAX_NAME_LENGTH];
+      char formula[MAX_FORMULA_LENGTH];
       float start_range;     
       float end_range;   
       float threshold_1;    
-      float threshold_2;
       enum AlarmDirection{
         UP,
         DOWN,
-      }alarm1Direction,
-      alarm2Direction;
+      }alarm1Direction;
+      float threshold_2;
+      AlarmDirection alarm2Direction;
       enum UnitType{
         MG_PER_M3, 
         PERCENT,
       }units;
+      uint8_t decimal;
   };
-  
 
-  
-
-  
+  struct Settings{
+    SensorSettings sensor[MAX_SENSORS];
+    CommonSettings common;
+    uint16_t init;
+    uint16_t check_sum;
+  };
   
   void init();
   
@@ -73,19 +78,33 @@ public:
   float readAlarmThreshold_2() const;  
   void writeAlarmThreshold_2(float threshold);
   
-  void readSensorName(char* outName, size_t maxLen, uint8_t channel) const;
-  void writeSensorName(const char* newName, uint8_t channel);
+  void readSensorName(uint8_t channel, char* outName, size_t maxLen) const;
+  void writeSensorName( uint8_t channel, const char* newName);
   
-  uint8_t readPDKType();
-  void writePDKType(uint8_t type);
+  void readSensorFormula
+    (uint8_t channel, char* outFormula, size_t maxLen) const;
+  void writeSensorFormula( uint8_t channel, const char* newFormula);
+  
+  CommonSettings::PDKType readPDKType();
+  void writePDKType(CommonSettings::PDKType type);
   
   CommonSettings::AlarmType readAlarmType();
+  void writeAlarmType(CommonSettings::AlarmType type);
   
   float readThreshold_1(uint8_t channel) const ;
   float readThreshold_2(uint8_t channel) const ;
   
-  SensorSettings::AlarmDirection threshold1Direction(uint8_t channel);
-  SensorSettings::AlarmDirection threshold2Direction(uint8_t channel);
+  float readStartRange(uint8_t channel) const ;
+  void writeStartRange(uint8_t channel, float start_range);
+  
+  SensorSettings::AlarmDirection readThreshold1Direction(uint8_t channel);
+  SensorSettings::AlarmDirection readThreshold2Direction(uint8_t channel);
+  
+  uint8_t readDecimal(uint8_t channel);
+  
+  void writeSensorSettings(uint8_t channel, SensorSettings& sensorSettings);
+  void readSensorSettings
+    (uint8_t channel, SensorSettings& sensorSettings) const;
   
   
   const char* readUnits(uint8_t channel);
@@ -109,12 +128,6 @@ private:
   static const char MV[5];
   static const char ERROR[4];
 
-  struct Settings{
-    SensorSettings sensor[MAX_SENSORS_CONF];
-    CommonSettings common;
-    uint16_t init;
-    uint16_t check_sum;
-  };
   
   STATIC_ASSERT(sizeof(Config::Settings)%2 == 0,
                 structure_must_be_2_bytes_padded);
